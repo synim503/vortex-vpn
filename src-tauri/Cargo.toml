@@ -1,0 +1,47 @@
+[package]
+name = "vortex-vpn"
+version = "1.0.0"
+description = "Vortex VPN — Modern Windows VLESS Reality Client"
+authors = ["Vortex"]
+edition = "2021"
+
+[lib]
+name = "vortex_vpn_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "custom-protocol"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
+uuid = { version = "1", features = ["v4"] }
+url = "2"
+chrono = { version = "0.4", features = ["serde"] }
+directories = "5"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_Threading",
+  "Win32_System_JobObjects",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_Networking_WinInet",
+] }
+winreg = "0.55"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

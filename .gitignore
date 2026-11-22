@@ -1,0 +1,15 @@
+# Dependencies & build outputs
+node_modules/
+dist/
+portable/
+src-tauri/target/
+
+# Large downloaded engine binary (auto-downloaded by app on first launch or via GitHub Releases)
+src-tauri/resources/sing-box.exe
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
