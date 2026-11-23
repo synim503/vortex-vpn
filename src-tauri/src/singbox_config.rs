@@ -102,6 +102,12 @@ pub fn build_singbox_config(profile: &VlessProfile, settings: &AppSettings) -> V
         "server_port": 53
     });
 
+    // OS-native resolver for localhost, *.localhost, *.local and hosts file entries
+    let dns_local = json!({
+        "type": "local",
+        "tag": "dns_local"
+    });
+
     // Collect bypass domains based on routing mode
     let mut bypass_domains: Vec<String> = Vec::new();
     if settings.routing.mode == RoutingMode::BypassRu {
@@ -118,7 +124,11 @@ pub fn build_singbox_config(profile: &VlessProfile, settings: &AppSettings) -> V
         }
     }
 
-    let mut dns_rules: Vec<Value> = Vec::new();
+    let mut dns_rules: Vec<Value> = vec![json!({
+        "domain": ["localhost"],
+        "domain_suffix": [".localhost", ".local"],
+        "server": "dns_local"
+    })];
     if !bypass_domains.is_empty() {
         dns_rules.push(json!({
             "domain_suffix": bypass_domains,
@@ -214,9 +224,27 @@ pub fn build_singbox_config(profile: &VlessProfile, settings: &AppSettings) -> V
     let mut route_rules: Vec<Value> = vec![
         json!({ "action": "sniff" }),
         json!({ "protocol": "dns", "action": "hijack-dns" }),
+        // Always bypass loopback (IPv4 & IPv6) and localhost regardless of LAN/IPv6 settings
+        json!({
+            "ip_cidr": ["127.0.0.0/8", "::1/128"],
+            "outbound": "direct"
+        }),
+        json!({
+            "domain": ["localhost"],
+            "domain_suffix": [".localhost"],
+            "outbound": "direct"
+        }),
     ];
 
-    // Prevent IPv6 leaks when IPv6 is set to Block
+    // Bypass private LAN addresses (192.168.x.x, 10.x.x.x, link-local, etc.) before public IPv6 block
+    if settings.routing.bypass_lan {
+        route_rules.push(json!({
+            "ip_is_private": true,
+            "outbound": "direct"
+        }));
+    }
+
+    // Prevent public IPv6 leaks when IPv6 is set to Block
     if settings.ipv6_mode == Ipv6Mode::Block {
         route_rules.push(json!({
             "ip_cidr": ["::/0"],
@@ -229,14 +257,6 @@ pub fn build_singbox_config(profile: &VlessProfile, settings: &AppSettings) -> V
         route_rules.push(json!({
             "protocol": "quic",
             "action": "reject"
-        }));
-    }
-
-    // Bypass private LAN addresses (localhost, 192.168.x.x, 10.x.x.x, etc.)
-    if settings.routing.bypass_lan {
-        route_rules.push(json!({
-            "ip_is_private": true,
-            "outbound": "direct"
         }));
     }
 
@@ -285,7 +305,7 @@ pub fn build_singbox_config(profile: &VlessProfile, settings: &AppSettings) -> V
             "timestamp": true
         },
         "dns": {
-            "servers": [dns_remote, dns_direct],
+            "servers": [dns_remote, dns_direct, dns_local],
             "rules": dns_rules,
             "final": "dns_remote",
             "strategy": dns_strategy

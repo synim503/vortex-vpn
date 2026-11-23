@@ -406,6 +406,19 @@ mod tests {
         assert_eq!(cfg["inbounds"][0]["auto_route"], true);
         assert_eq!(cfg["outbounds"][0]["flow"], "xtls-rprx-vision");
         assert_eq!(cfg["outbounds"][0]["packet_encoding"], "xudp");
+
+        // Verify localhost & IPv4/IPv6 loopback bypass precedes ::/0 IPv6 reject
+        let rules = cfg["route"]["rules"].as_array().expect("route.rules array");
+        let loopback_idx = rules
+            .iter()
+            .position(|r| r["outbound"] == "direct" && r["ip_cidr"].is_array())
+            .expect("loopback direct rule");
+        let ipv6_reject_idx = rules
+            .iter()
+            .position(|r| r["action"] == "reject" && r["ip_cidr"][0] == "::/0")
+            .expect("ipv6 reject rule");
+        assert!(loopback_idx < ipv6_reject_idx);
+        assert_eq!(cfg["dns"]["rules"][0]["server"], "dns_local");
     }
 }
 
